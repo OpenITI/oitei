@@ -77,7 +77,7 @@ PageV00P030
 ### $DOX_SEC$
 ~~doxographical (sects)
 ### |EDITOR|
-[السيرة النبوية]
+~~[السيرة النبوية]
 ### $BIO_MAN$
 #~:onomastic:
 # حمد بن علي بن: سعيدء. أبو: العباس الخوزي

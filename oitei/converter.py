@@ -1,10 +1,8 @@
 import oimdp
-from oimdp.structures import AdministrativeRegion, BioOrEvent, Content, DictionaryUnit, DoxographicalItem, Editorial, Line, Paragraph, TextPart
+from oimdp.structures import AdministrativeRegion, BioOrEvent, Content, DictionaryUnit, DoxographicalItem, Editorial, Hukm, Isnad, Line, Matn, Paragraph, Riwayat, TextPart
 from lxml import etree
 from lxml.etree import Element
 import xml.etree.ElementTree as ET
-import warnings
-import re
 
 from oitei.tei_template import TEI_TEMPLATE
 
@@ -20,6 +18,7 @@ class Converter:
     def __init__(self, text: str):
         self.magic_value = "######OpenITI#"
         self.doc = etree.fromstring(TEI_TEMPLATE)
+        self.context_linepart = None
         
         try:
             self.context_node = self.doc.find(".//tei:body", NS)
@@ -55,7 +54,7 @@ class Converter:
                     for count, child in enumerate(el):
                         text_indent(child, level+1, count+1 == tot_children)
 
-        if self.doc:
+        if self.doc is not None:
             etree.indent(self.doc, space=space)
             text_indent(self.doc)
                     
@@ -92,48 +91,16 @@ class Converter:
 
         # Process content
         for content in self.md.content:
-            # print(type(content).__name__)
             self._convertStructure(content)
-
-    def _create_p(self):
-        if self.context_node.tag != "div":
-            # Locate closest div
-            closest = self.context_node.xpath("ancestor::tei:div", namespaces=NS)
-
-            if closest:
-                self.context_node = closest
-            else:
-                # If there is no div, create one.
-                self.context_node = etree.SubElement(self.body, "div")
         
-        self.context_node = etree.SubElement(self.context_node, "p")
 
     def _convertStructure(self, content):
         """Convert an oimdp.Content object to a TEI element"""
 
-        if isinstance(content, Paragraph):
-            self._create_p()
+        PARALIKE = ["p", "ab"]
 
-        elif isinstance(content, Line):
-            if self.context_node.tag != "p":
-                warnings.warn("A mARkdown line does not seem to be in a paragraph. The converter created one anyway.")
-                self._create_p()
-
-            etree.SubElement(self.context_node, "lb")
-
-            # Lines should contain lineparts
-            if len(content.parts) > 0:
-                for part in content.parts:
-                    self._convertStructure(part)
-                self._appendText(self.context_node, "\n")
-
-        elif isinstance(content, TextPart):
-            self._appendText(self.context_node, content.orig.strip())
-
-        # elif isinstance(content, AdministrativeRegion):
-            #TODO IN PARSER!
-            
-        elif isinstance(content, BioOrEvent):
+        def _set_closest_container():
+            """ set the context node to closest div or body """
             if self.context_node.tag != "body":
                 # Locate closest div
                 closest = self.context_node.xpath("ancestor::tei:div", namespaces=NS)
@@ -143,6 +110,76 @@ class Converter:
                 else:
                     # Return to body
                     self.context_node = self.body
+
+        def _create_p(tag="p", attributes={}):
+            if self.context_node.tag != "div":
+                # Locate closest div
+                closest = self.context_node.xpath("./ancestor::tei:div", namespaces=NS)
+
+                if closest:
+                    self.context_node = closest
+                else:
+                    # If there is no div, create one.
+                    div = etree.SubElement(self.body, "div")
+                    if attributes:
+                        for att in attributes:
+                            div.set(att, attributes[att])
+                    self.context_node = div
+            
+            self.context_node = etree.SubElement(self.context_node, tag)
+
+        # LINE PARTS FIRST
+        if isinstance(content, Isnad) or isinstance(content, Matn) or isinstance(content, Hukm):
+            parts = {
+                "Isnad": "isn",
+                "Matn": "matn",
+                "Hukm": "hukm",
+            }
+
+            if self.context_node.tag != "ab":
+                raise Exception("Riwāyāt part not in Riwāyāt")
+            
+            seg = etree.SubElement(self.context_node, "seg")
+            part_type = parts.get(type(content).__name__)
+            seg.set("type", part_type)
+            
+            self.context_linepart = seg
+            print(self.context_linepart)
+
+        elif isinstance(content, TextPart):
+            node = self.context_node
+            if self.context_linepart is not None:
+                node = self.context_linepart
+            self._appendText(node, content.orig.strip())
+
+        else:
+            self.context_linepart = None
+
+
+        # Riwāyāt -- NEEDS correction in TEI customization: <p> does not have a type. Use <ab>.
+        if isinstance(content, Riwayat):
+            _create_p(tag="ab", attributes={"type": "rwy"})
+
+        elif isinstance(content, Paragraph):
+            _create_p()
+
+        elif isinstance(content, Line):
+            if self.context_node.tag not in PARALIKE:
+                _create_p()
+
+            etree.SubElement(self.context_node, "lb")
+
+            # Lines should contain lineparts
+            if len(content.parts) > 0:
+                for part in content.parts:
+                    self._convertStructure(part)
+                self._appendText(self.context_node, "\n")
+
+        # elif isinstance(content, AdministrativeRegion):
+            #TODO IN PARSER!
+            
+        elif isinstance(content, BioOrEvent):
+            _set_closest_container()
                 
             div = etree.SubElement(self.context_node, "div")
 
@@ -152,7 +189,7 @@ class Converter:
             elif content.be_type == "man":
                 div.set("type", "biography")
                 div.set("subtype", "man")
-            elif content.be_type == "rep":
+            elif content.be_type == "ref":
                 div.set("type", "biography")
                 div.set("subtype", "ref_or_rep")
             elif content.be_type == "names":
@@ -163,29 +200,40 @@ class Converter:
                 div.set("type", "events")
         
             self.context_node = div
-        # elif isinstance(content, DictionaryUnit):
-        #     entry_free = teiDoc.createElementNS(TEINS, "entryFree")
-        #     if content.dic_type == "bib":
-        #         entry_free.setAttribute("type", "bib")
-        #     elif content.dic_type == "lex":
-        #         entry_free.setAttribute("type", "lex")
-        #     elif content.dic_type == "nis":
-        #         entry_free.setAttribute("type", "nis")
-        #     elif content.dic_type == "top":
-        #         entry_free.setAttribute("type", "top")
-        #     entry_free.appendChild(teiDoc.createTextNode(content.value))
-        #     parent.appendChild(entry_free)
-        # elif isinstance(content, DoxographicalItem):
-        #     doxo_div = teiDoc.createElementNS(TEINS, "div")
-        #     doxo_div.setAttribute("type", "doxographical")
-        #     if content.dox_type == "pos":
-        #         doxo_div.setAttribute("subtype", "pos")
-        #     elif content.dox_type == "sec":
-        #         doxo_div.setAttribute("subtype", "sec")
-        #     doxo_div.appendChild(teiDoc.createTextNode(content.value))
-        #     parent.appendChild(doxo_div)
-        # elif isinstance(content, Editorial):
-        #     ed_div = teiDoc.createElementNS(TEINS, "div")
-        #     ed_div.setAttribute("type", "editorial")
-        #     ## TODO: THE FOLLOWING CONTENT MUST BE CONTAINED. BUT WHEN DOES IT STOP?
-        #     parent.appendChild(ed_div)
+
+        elif isinstance(content, DictionaryUnit):
+            _set_closest_container()
+                
+            ef = etree.SubElement(self.context_node, "entryFree")
+
+            if content.dic_type == "bib":
+                ef.set("type", "bib")
+            elif content.dic_type == "lex":
+                ef.set("type", "lex")
+            elif content.dic_type == "nis":
+                ef.set("type", "nis")
+            elif content.dic_type == "top":
+                ef.set("type", "top")
+        
+            self.context_node = ef
+        elif isinstance(content, DoxographicalItem):
+            _set_closest_container()
+
+            div = etree.SubElement(self.context_node, "div")
+            div.set("type", "doxographical")
+
+            if content.dox_type == "pos":
+                div.set("subtype", "pos")
+            elif content.dox_type == "sec":
+                div.set("subtype", "sec")
+
+            self.context_node = div
+        elif isinstance(content, Editorial):
+            _set_closest_container()
+
+            div = etree.SubElement(self.context_node, "div")
+            div.set("type", "editorial")
+
+            self.context_node = div
+
+        # Morphological Patterns
