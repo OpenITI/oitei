@@ -1,5 +1,5 @@
 import oimdp
-from oimdp.structures import AdministrativeRegion, BioOrEvent, Content, DictionaryUnit, DoxographicalItem, Editorial, Hukm, Isnad, Line, Matn, Paragraph, Riwayat, SectionHeader, TextPart
+from oimdp.structures import AdministrativeRegion, BioOrEvent, Content, DictionaryUnit, DoxographicalItem, Editorial, Hemistich, Hukm, Isnad, Line, LinePart, Matn, PageNumber, Paragraph, Riwayat, SectionHeader, TextPart, Verse
 from lxml import etree
 from lxml.etree import Element
 
@@ -130,7 +130,7 @@ class Converter:
             
             self.context_node = etree.SubElement(self.context_node, f"{TEINS}{tag}")
 
-        # LINE PARTS FIRST
+        # LINE PARTS 
         if isinstance(content, Isnad) or isinstance(content, Matn) or isinstance(content, Hukm):
             parts = {
                 "Isnad": "isn",
@@ -146,6 +146,14 @@ class Converter:
             seg.set("type", part_type)
             
             self.context_linepart = seg
+
+        elif isinstance(content, Hemistich):
+            if self.context_node.tag != f"{TEINS}l":
+                raise Exception("Hemistic outside of Verse structure")
+            else:
+                # TODO: THIS MUST BE UPDATED IN THE SCHEMA: Use caesura instead of seg type hemi
+                c = etree.SubElement(self.context_node, f"{TEINS}caesura")
+                c.tail = " "
 
         elif isinstance(content, TextPart):
             node = self.context_node
@@ -164,13 +172,34 @@ class Converter:
         elif isinstance(content, Paragraph):
             _create_p()
 
+        elif isinstance(content, PageNumber):
+            pb = etree.SubElement(self.context_node, f"{TEINS}pb")
+            value = ""
+            if int(content.volume) > 0:
+                value += f"Vol. {int(content.volume)}, "
+            if int(content.page) > 0:
+                value += f"p. {int(content.page)}"
+                pb.set("n", value)
+
+        elif isinstance(content, Verse):
+            if self.context_node.tag != f"{TEINS}lg":
+                _set_closest_container()
+                self.context_node = etree.SubElement(self.context_node, f"{TEINS}lg")
+            
+            self.context_node = etree.SubElement(self.context_node, f"{TEINS}l")
+
+            if len(content.parts) > 0:
+                for part in content.parts:
+                    self._convertStructure(part)
+                self._appendText(self.context_node, "\n")
+            self.context_node = self.context_node.getparent()
+
         elif isinstance(content, Line):
             if self.context_node.tag not in PARALIKE:
                 _create_p()
 
             etree.SubElement(self.context_node, f"{TEINS}lb")
 
-            # Lines should contain lineparts
             if len(content.parts) > 0:
                 for part in content.parts:
                     self._convertStructure(part)
@@ -204,7 +233,7 @@ class Converter:
                     raise Exception("Could not parse nesting of sections based on headers.")
 
             head = etree.SubElement(self.context_node, f"{TEINS}head")
-            head.text = f"content: {content.level}, ancestor divs: {cur_level}"  #content.value.strip()
+            head.text = content.value.strip()
 
             # Create new div
             # div = etree.SubElement(self.context_node, "div")
