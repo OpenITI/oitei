@@ -1,9 +1,9 @@
 import oimdp
-from oimdp.structures import AdministrativeRegion, BioOrEvent, Content, DictionaryUnit, DoxographicalItem, Editorial, Hemistich, Hukm, Isnad, Line, LinePart, Matn, PageNumber, Paragraph, Riwayat, SectionHeader, TextPart, Verse
+from oimdp.structures import AdministrativeRegion, Age, BioOrEvent, Content, Date, DictionaryUnit, DoxographicalItem, Editorial, Hemistich, Hukm, Isnad, Line, LinePart, Matn, Milestone, NamedEntity, PageNumber, Paragraph, Riwayat, SectionHeader, TextPart, Verse
 from lxml import etree
 from lxml.etree import Element
 
-from oitei.tei_template import TEI_TEMPLATE
+from oitei.tei_template import TEI_TEMPLATE, DECLS
 
 TEINS = "{http://www.tei-c.org/ns/1.0}"
 
@@ -59,9 +59,14 @@ class Converter:
             etree.indent(self.doc, space=space)
             text_indent(self.doc)
                     
-            return etree.tostring(self.doc, xml_declaration=True, pretty_print=True, encoding="UTF-8").decode("utf-8")
+            tree_str = etree.tostring(self.doc, xml_declaration=False, pretty_print=True, encoding="UTF-8").decode("utf-8")
+            return DECLS + tree_str
         else:
             return ""
+
+    
+    def tostring(self):
+        return self.__str__()
 
 
     def _appendText(self, el: Element, text: str):
@@ -98,8 +103,7 @@ class Converter:
     def _convertStructure(self, content):
         """Convert an oimdp.Content object to a TEI element"""
 
-        PARALIKE = [f"{TEINS}p", f"{TEINS}ab"]
-        DIVLIKE = [f"{TEINS}div", f"{TEINS}entryFree"]
+        PARALIKE = [f"{TEINS}p", f"{TEINS}ab", f"{TEINS}entryFree", f"{TEINS}lg"]
 
         def _set_closest_container():
             """ set the context node to closest div or body """
@@ -108,64 +112,47 @@ class Converter:
                 closest = self.context_node.xpath("ancestor::tei:div[not(@type)]", namespaces=NS)
 
                 if len(closest):
-                    self.context_node = closest[0]
+                    self.context_node = closest[-1]
                 else:
                     # Return to body
                     self.context_node = self.body
 
-        def _create_p(tag="p", attributes={}):
-            if self.context_node.tag not in DIVLIKE:
+        def _set_closest_container_for_paralike():
+            """ set the context node to closest usable div. """            
+
+            def _create(ctx):
+                div = etree.SubElement(ctx, f"{TEINS}div")
+                self.context_node = div
+
+            if self.context_node.tag == f"{TEINS}div":
+                children = self.context_node.getchildren()
+                # Paragraph-like elements must not be preceded by divs.
+                if len(children) and children[-1].tag == f"{TEINS}div":
+                    _create(self.context_node)
+
+            else:                
                 # Locate closest div like structure
                 closest = self.context_node.xpath("ancestor::tei:div", namespaces=NS)
 
                 if len(closest):
-                    self.context_node = closest[0]
+                    children = closest[-1].getchildren()
+                    # Paragraph-like elements must not be preceded by divs.
+                    if len(children) and children[-1].tag != f"{TEINS}div":
+                        self.context_node = closest[-1]
+                    else:
+                        _create(self.body)
                 else:
-                    # If there is no div, create one.
-                    div = etree.SubElement(self.body, f"{TEINS}div")
-                    if attributes:
-                        for att in attributes:
-                            div.set(att, attributes[att])
-                    self.context_node = div
-            
-            self.context_node = etree.SubElement(self.context_node, f"{TEINS}{tag}")
+                    _create(self.body)
 
-        # LINE PARTS 
-        if isinstance(content, Isnad) or isinstance(content, Matn) or isinstance(content, Hukm):
-            parts = {
-                "Isnad": "isn",
-                "Matn": "matn",
-                "Hukm": "hukm",
-            }
+        def _create_p(tag="p", attributes={}):
+            _set_closest_container_for_paralike()
+            el = etree.SubElement(self.context_node, f"{TEINS}{tag}")
+            if attributes:
+                for att in attributes:
+                    el.set(att, attributes[att]) 
+            self.context_node = el
 
-            if self.context_node.tag != f"{TEINS}ab":
-                raise Exception("Riwāyāt part not in Riwāyāt")
-            
-            seg = etree.SubElement(self.context_node, f"{TEINS}seg")
-            part_type = parts.get(type(content).__name__)
-            seg.set("type", part_type)
-            
-            self.context_linepart = seg
-
-        elif isinstance(content, Hemistich):
-            if self.context_node.tag != f"{TEINS}l":
-                raise Exception("Hemistic outside of Verse structure")
-            else:
-                # TODO: THIS MUST BE UPDATED IN THE SCHEMA: Use caesura instead of seg type hemi
-                c = etree.SubElement(self.context_node, f"{TEINS}caesura")
-                c.tail = " "
-
-        elif isinstance(content, TextPart):
-            node = self.context_node
-            if self.context_linepart is not None:
-                node = self.context_linepart
-            self._appendText(node, content.orig.strip())
-
-        else:
-            self.context_linepart = None
-
-
-        # Riwāyāt -- NEEDS correction in TEI customization: <p> does not have a type. Use <ab>.
+        # Riwāyāt
         if isinstance(content, Riwayat):
             _create_p(tag="ab", attributes={"type": "rwy"})
 
@@ -183,14 +170,14 @@ class Converter:
 
         elif isinstance(content, Verse):
             if self.context_node.tag != f"{TEINS}lg":
-                _set_closest_container()
+                _set_closest_container_for_paralike()
                 self.context_node = etree.SubElement(self.context_node, f"{TEINS}lg")
             
             self.context_node = etree.SubElement(self.context_node, f"{TEINS}l")
 
             if len(content.parts) > 0:
                 for part in content.parts:
-                    self._convertStructure(part)
+                    self._convertPart(part)
                 self._appendText(self.context_node, "\n")
             self.context_node = self.context_node.getparent()
 
@@ -202,7 +189,7 @@ class Converter:
 
             if len(content.parts) > 0:
                 for part in content.parts:
-                    self._convertStructure(part)
+                    self._convertPart(part)
                 self._appendText(self.context_node, "\n")
 
         elif isinstance(content, SectionHeader):
@@ -220,23 +207,38 @@ class Converter:
             cur_level = len(self.context_node.xpath("ancestor-or-self::tei:div[not(@type)]", namespaces=NS))
             level_diff = content.level - cur_level
 
-            if level_diff >= 0:
-                # Needs nesting or is at the coorect level (level_diff == 0 and the loop is noop).
+            def _is_viable(container):
+                """  check that the <div> is either empty or only contains lb, pb, or head """
+                allowed_children = [f"{TEINS}lb", f"{TEINS}pb", f"{TEINS}head"]
+                children = container.getchildren()
+                if len(children):
+                    for child in children:
+                        if child.tag not in allowed_children:
+                            return False
+                return True
+
+            if level_diff == 0 and not _is_viable(self.context_node):
+                # Check viability or step up up a level and create new div
+                _set_closest_container()
+                self.context_node = etree.SubElement(self.context_node, f"{TEINS}div")
+            elif level_diff > 0:
+                # Needs nesting.
                 for step in range(level_diff):
                     self.context_node = etree.SubElement(self.context_node, f"{TEINS}div")
             else:
                 # Needs to step out by the level difference.
-                ancestor = self.context_node.xpath("ancestor::tei:div[not(@type)]", namespaces=NS)[level_diff]
-                if ancestor:
-                    self.context_node = ancestor
-                else:
-                    raise Exception("Could not parse nesting of sections based on headers.")
+                # try: 
+                ancestors = self.context_node.xpath("ancestor::tei:div[not(@type)]", namespaces=NS)
+                if len(ancestors):
+                    ancestor = ancestors[level_diff]
+                    if ancestor is not None:
+                        self.context_node = ancestor
+                        if not _is_viable(ancestor):
+                            _set_closest_container()
+                            self.context_node = etree.SubElement(self.context_node, f"{TEINS}div")
 
             head = etree.SubElement(self.context_node, f"{TEINS}head")
             head.text = content.value.strip()
-
-            # Create new div
-            # div = etree.SubElement(self.context_node, "div")
 
         # elif isinstance(content, AdministrativeRegion):
             #TODO IN PARSER!
@@ -265,7 +267,7 @@ class Converter:
             self.context_node = div
 
         elif isinstance(content, DictionaryUnit):
-            _set_closest_container()
+            _set_closest_container_for_paralike()
                 
             ef = etree.SubElement(self.context_node, f"{TEINS}entryFree")
 
@@ -299,4 +301,73 @@ class Converter:
 
             self.context_node = div
 
-        # Morphological Patterns
+    def _convertPart(self, content):
+        """ Convert line parts """ 
+        if isinstance(content, Isnad) or isinstance(content, Matn) or isinstance(content, Hukm):
+            parts = {
+                "Isnad": "isn",
+                "Matn": "matn",
+                "Hukm": "hukm",
+            }
+
+            if self.context_node.tag != f"{TEINS}ab":
+                raise Exception("Riwāyāt part not in Riwāyāt")
+            
+            seg = etree.SubElement(self.context_node, f"{TEINS}seg")
+            part_type = parts.get(type(content).__name__)
+            seg.set("type", part_type)
+            
+            self.context_linepart = seg
+
+        elif isinstance(content, Hemistich):
+            if self.context_node.tag != f"{TEINS}l":
+                raise Exception("Hemistic outside of Verse structure")
+            else:
+                c = etree.SubElement(self.context_node, f"{TEINS}caesura")
+                c.tail = " "
+
+        elif isinstance(content, Milestone):
+            milestone = etree.SubElement(self.context_node, f"{TEINS}milestone")
+            milestone.set("n", "300")
+            milestone.set("unit", "words")
+            
+        elif isinstance(content, Date):
+            date = etree.SubElement(self.context_node, f"{TEINS}date")
+            date.set("type", content.date_type)
+            date.set("calendar", "#ah")
+            date.set("when-custom", content.value)
+            date.tail = " "
+        elif isinstance(content, Age):
+            num = etree.SubElement(self.context_node, f"{TEINS}num")
+            num.set("type", "age")
+            num.set("value", content.value)
+            num.tail = " "
+        elif isinstance(content, NamedEntity):
+            if content.ne_type == "soc":
+                seg = etree.SubElement(self.context_node, f"{TEINS}seg")
+                seg.set("type", "biochar")
+                seg.text = content.text
+                seg.tail = " "
+            elif content.ne_type == "top":
+                pn = etree.SubElement(self.context_node, f"{TEINS}placeName")
+                pn.text = content.text
+                pn.tail = " "
+            elif content.ne_type == "per":
+                pn = etree.SubElement(self.context_node, f"{TEINS}persName")
+                pn.text = content.text
+                pn.tail = " "
+            elif content.ne_type == "src":
+                pn = etree.SubElement(self.context_node, f"{TEINS}persName")
+                pn.set("role", "source")
+                pn.text = content.text
+                pn.tail = " "
+
+        elif isinstance(content, TextPart):
+            node = self.context_node
+            if self.context_linepart is not None:
+                node = self.context_linepart
+
+            self._appendText(node, content.orig.strip())   
+
+        else:
+            self.context_linepart = None
