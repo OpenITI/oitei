@@ -1,0 +1,120 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<?xml-model href="https://raw.githubusercontent.com/OpenITI/tei_openiti/master/tei_openiti.rng" type="application/xml" schematypens="http://relaxng.org/ns/structure/1.0"?>
+<?xml-model href="https://raw.githubusercontent.com/OpenITI/tei_openiti/master/tei_openiti.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0">
+  <teiHeader>
+    <fileDesc>
+      <titleStmt>
+        <title/>
+      </titleStmt>
+      <publicationStmt>
+        <p/>
+      </publicationStmt>
+      <sourceDesc>
+        <p/>
+      </sourceDesc>
+    </fileDesc>
+    <profileDesc>
+      <calendarDesc>
+        <calendar xml:id="ah">
+          <p>Anno Hegirae</p>
+        </calendar>
+      </calendarDesc>
+    </profileDesc>
+    <xenoData xml:space="preserve">
+DOCUMENT_URI :: 1280CumarIbnSayyid.AbanaAwwwal.DC0211S1D2-ara1
+DOCUMENT_NUMBER :: 2
+REPOSITORY :: Davidson College Library
+CATALOG_ID :: DC0211s1
+FOLIOS :: 1
+LINES :: 8
+TRANSCRIBER :: Carl W. Ernst and Mbaye Lo
+NOTES :: CWE: Omar ibn Said, Document 2, transcription Carl W. Ernst and Mbaye Lo, Harmattan font, Maghribi script, following line breaks of original
+URL :: http://davidsonlibraryexhibits.net/archives/files/original/0506f0ec1c09d1253e433cd348298877.jpg
+</xenoData>
+  </teiHeader>
+  <text>
+    <body>
+      <div>
+        <p>
+          <lb/>METADATAEND######################################
+        </p>
+        <p>
+          <lb/>=# الحمد لله الذی خلف الخلف لعبادته حتی زرب اڢعالهم
+        </p>
+        <p>
+          <lb/>~# A17 الحمد لله الذی خلق الخلق لعبادته حتی جرب أَفعالهم
+        </p>
+        <p>
+          <lb/>=# وافوالهم SEP3 SEP4 من عمل صالحا ڢبنڢسه ومن
+        </p>
+        <p>
+          <lb/>~# وأَقوالهم A20 SEP3 SEP4 A17 من عمل صالحا فلِنَفسِهِ ومن
+        </p>
+        <p>
+          <lb/>=# عسىٰ ڢعليها SEP3 SEP4
+        </p>
+        <p>
+          <lb/>~# أَسَاءَ فعليها SEP3 SEP4 A20
+        </p>
+        <p>
+          <lb/>=# يا ابانا الذي ڢي السموات يتفدس اسمك SEP1 تاتي
+        </p>
+        <p>
+          <lb/>~# A26 يا أبانا الذي في السموات يتقدس اسمك SEP1 تأتي
+        </p>
+        <p>
+          <lb/>=# ملكوتك تكون مشيتك كما ڢي السماء وعلى
+        </p>
+        <p>
+          <lb/>~# ملكوتك تكون مشيتك كما في السماء وعلى
+        </p>
+        <p>
+          <lb/>=# الارض SEP1 خبزنا الذي للغدا اعطنا اليوم واغڢر
+        </p>
+        <p>
+          <lb/>~# الأرض SEP1 خبزنا الذي للغد اعطنا اليوم واغفر
+        </p>
+        <p>
+          <lb/>=# لنا ما علينا كما نغڢر نحن لمن لنا عليه SEP1 ولا
+        </p>
+        <p>
+          <lb/>~# لنا ما علينا كما نغفر نحن لمن لنا عليه SEP1 ولا
+        </p>
+        <p>
+          <lb/>=# ===خلنا التجا=== لكن نجنا من الشرير ڢان لك
+        </p>
+        <p>
+          <lb/>~# تدخلنا التجارب لكن نجنا من الشرير فإن لك
+        </p>
+        <p>
+          <lb/>=# الملك والفوة والمجد الى الابد ءامين
+        </p>
+        <p>
+          <lb/>~# الملك والقوة والمجد إلى الأبد آمين A26
+        </p>
+        <p>
+          <lb/>=# SEP5 SEP4 SEP5 SEP4 SEP5 SEP4
+        </p>
+        <p>
+          <lb/>~# SEP5 SEP4 SEP5 SEP4 SEP5 SEP4
+        </p>
+        <p>
+          <lb/>=# SEP6 FIG2
+        </p>
+        <p>
+          <lb/>~# SEP6 FIG2
+        </p>
+        <p>
+          <lb/>*# A17 :: Testing formula
+        </p>
+        <p>
+          <lb/>*# A20 :: Qurʾān 41:46
+        </p>
+        <p>
+          <lb/>*# A26 :: Matthew 6:9-13 (The Lord's Prayer)
+        </p>
+      </div>
+    </body>
+  </text>
+</TEI>
