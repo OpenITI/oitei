@@ -1,4 +1,9 @@
 /* Add your own CSS rules here */
+
+tei-tei {
+ font-family: 'Amiri', serif;
+}
+
 #description {
   margin: 0 0 1em 0;
 }
