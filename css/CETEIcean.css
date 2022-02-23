@@ -18,10 +18,6 @@ tei-choice tei-reg + tei-orig:after {
   content: ")";
 }
 
-tei-body {
-  direction:rtl;
-}
-
 /* A */
 tei-ab {
   display: block;
