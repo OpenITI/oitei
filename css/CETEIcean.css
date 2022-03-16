@@ -587,14 +587,14 @@ tei-TEI tei-head {
 }
 tei-body > tei-head {
   font-size: 180%;
-  text-indent: -0.5em;
+  
 }
 tei-div.textpart {
   display: none;
 }
 tei-div > tei-head {
   font-size: 170%;
-  text-indent: -0.5em;
+  
 }
 tei-div > tei-div > tei-head {
   font-size: 155%;
