@@ -343,23 +343,29 @@ class Converter:
             num.set("value", content.value)
             num.tail = " "
         elif isinstance(content, NamedEntity):
+            self._appendText(self.context_node, " ")
+            text_to_add = content.text
+            if content.prefix > 0:
+                pre = content.text[:content.prefix]
+                self._appendText(self.context_node, pre)
+                text_to_add = content.text[content.prefix:]
             if content.ne_type == "soc":
                 seg = etree.SubElement(self.context_node, f"{TEINS}seg")
                 seg.set("type", "biochar")
-                seg.text = content.text
+                seg.text = text_to_add
                 seg.tail = " "
             elif content.ne_type == "top":
                 pn = etree.SubElement(self.context_node, f"{TEINS}placeName")
-                pn.text = content.text
+                pn.text = text_to_add
                 pn.tail = " "
             elif content.ne_type == "per":
                 pn = etree.SubElement(self.context_node, f"{TEINS}persName")
-                pn.text = content.text
+                pn.text = text_to_add
                 pn.tail = " "
             elif content.ne_type == "src":
                 pn = etree.SubElement(self.context_node, f"{TEINS}persName")
                 pn.set("role", "source")
-                pn.text = content.text
+                pn.text = text_to_add
                 pn.tail = " "
 
         elif isinstance(content, TextPart):
