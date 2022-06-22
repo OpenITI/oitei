@@ -15,7 +15,7 @@ NS = {
 
 class Converter:
     """OpenITI mARkdown to OpenITI TEI converter"""
-     # TODO: allow users to provide template or at least URL to schema
+    # TODO: allow users to provide template or at least URL to schema
     def __init__(self, text: str):
         self.magic_value = "######OpenITI#"
         self.doc = etree.fromstring(TEI_TEMPLATE)
@@ -81,6 +81,32 @@ class Converter:
             el.text = text
 
 
+    def _pagenum_lookdown(self, pos):
+        for c in self.md.content[pos:]:
+            if isinstance(c, PageNumber) or isinstance(c, Line):
+                if isinstance(c, Line):
+                    for lp in c.parts:
+                        if isinstance(lp, PageNumber):
+                            return lp
+                elif isinstance(c, PageNumber):
+                    return c
+
+
+    def _create_pb(self, c):
+            pb = etree.SubElement(self.context_node, f"{TEINS}pb")
+            value = ""
+            if c.volume.isdigit():
+                if int(c.volume) > 0:
+                    value += f"Vol. {int(c.volume)}, "
+            else:
+                value += f"Vol. {c.volume}, "
+            page = c.page
+            if page.isdigit():
+                page = int(page)
+            value += f"p. {page}"
+            pb.set("n", value)
+
+
     def convert(self):
         # Set up TEI document from a minimal string template
         teiHeader = self.doc.find(".//tei:teiHeader", NS)
@@ -95,12 +121,16 @@ class Converter:
             xenoData.text = xenoString 
             teiHeader.append(xenoData)
 
+        # If there are page numbers, the first one needs to be placed at the beginning
+        # of the document because TEI marks page beginnings, not endings.
+        self._create_pb(self._pagenum_lookdown(0))
+
         # Process content
-        for content in self.md.content:
-            self._convertStructure(content)
+        for pos, content in enumerate(self.md.content):
+            self._convertStructure(content, pos)
         
 
-    def _convertStructure(self, content):
+    def _convertStructure(self, content, pos):
         """Convert an oimdp.Content object to a TEI element"""
 
         PARALIKE = [f"{TEINS}p", f"{TEINS}ab", f"{TEINS}entryFree", f"{TEINS}lg"]
@@ -160,13 +190,11 @@ class Converter:
             _create_p()
 
         elif isinstance(content, PageNumber):
-            pb = etree.SubElement(self.context_node, f"{TEINS}pb")
-            value = ""
-            if int(content.volume) > 0:
-                value += f"Vol. {int(content.volume)}, "
-            if int(content.page) > 0:
-                value += f"p. {int(content.page)}"
-                pb.set("n", value)
+            # PageNumber typically marks the end of a page, while TEI marks the beginning.
+            # We need to do a look-up to move the page to the right location.
+            next_pagenum = self._pagenum_lookdown(pos + 1)
+            if next_pagenum:
+                self._create_pb(next_pagenum)
 
         elif isinstance(content, Verse):
             if self.context_node.tag != f"{TEINS}lg":
@@ -177,7 +205,7 @@ class Converter:
 
             if len(content.parts) > 0:
                 for part in content.parts:
-                    self._convertPart(part)
+                    self._convertPart(part, pos)
                 self._appendText(self.context_node, "\n")
             self.context_node = self.context_node.getparent()
 
@@ -189,7 +217,7 @@ class Converter:
 
             if len(content.parts) > 0:
                 for part in content.parts:
-                    self._convertPart(part)
+                    self._convertPart(part, pos)
                 self._appendText(self.context_node, "\n")
 
         elif isinstance(content, SectionHeader):
@@ -301,7 +329,7 @@ class Converter:
 
             self.context_node = div
 
-    def _convertPart(self, content):
+    def _convertPart(self, content, cur_pos):
         """ Convert line parts """ 
         if isinstance(content, Isnad) or isinstance(content, Matn) or isinstance(content, Hukm):
             parts = {
@@ -373,7 +401,14 @@ class Converter:
             if self.context_linepart is not None:
                 node = self.context_linepart
 
-            self._appendText(node, content.orig.strip())   
+            self._appendText(node, content.orig.strip())
+
+        elif isinstance(content, PageNumber):
+            # PageNumber typically marks the end of a page, while TEI marks the beginning.
+            # We need to do a look-up to move the page to the right location.
+            next_pagenum = self._pagenum_lookdown(cur_pos + 1)
+            if next_pagenum:
+                self._create_pb(next_pagenum)
 
         else:
             self.context_linepart = None
