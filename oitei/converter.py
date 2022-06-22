@@ -148,7 +148,7 @@ class Converter:
                     self.context_node = self.body
 
         def _set_closest_container_for_paralike():
-            """ set the context node to closest usable div. """            
+            """ set the context node to closest usable div. """
 
             def _create(ctx):
                 div = etree.SubElement(ctx, f"{TEINS}div")
@@ -221,6 +221,18 @@ class Converter:
                 self._appendText(self.context_node, "\n")
 
         elif isinstance(content, SectionHeader):
+            # make sure this isn't used as a closing tag to resume content in the previous div.
+            # (no value or empty string value)
+            val = content.value or ""
+            if "".join(val.split()) == "":
+                closest = self.context_node.xpath("ancestor::tei:div[not(@type)] | ancestor::tei:body", namespaces=NS)
+                if len(closest):
+                    if self.context_node.tag == f"{TEINS}div":
+                        self.context_node = closest[-1]
+                    else:
+                        self.context_node = closest[-2]
+                return
+            
             # make sure we are in a section (untyped) div ...
             if self.context_node.tag != f"{TEINS}div" or self.context_node.get("type"):
                 # ... or find the closest ...
