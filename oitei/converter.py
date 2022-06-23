@@ -1,5 +1,5 @@
 import oimdp
-from oimdp.structures import AdministrativeRegion, Age, BioOrEvent, Content, Date, DictionaryUnit, DoxographicalItem, Editorial, Hemistich, Hukm, Isnad, Line, LinePart, Matn, Milestone, NamedEntity, PageNumber, Paragraph, Riwayat, SectionHeader, TextPart, Verse
+from oimdp.structures import *
 from lxml import etree
 from lxml.etree import Element
 
@@ -78,7 +78,10 @@ class Converter:
             else:
                 children[-1].tail = text
         else:
-            el.text = text
+            if el.text:
+                el.text = el.text + text
+            else:
+                el.text = text
 
 
     def _pagenum_lookdown(self, pos):
@@ -210,15 +213,28 @@ class Converter:
             self.context_node = self.context_node.getparent()
 
         elif isinstance(content, Line):
-            if self.context_node.tag not in PARALIKE:
-                _create_p()
+            addlinebreak = True
+            # Lines after certain structure markers are headers
+            prev = self.md.content[pos - 1]
+            if (
+                isinstance(prev, BioOrEvent) or 
+                isinstance(prev, DictionaryUnit) or
+                isinstance(prev, DoxographicalItem)
+            ) and self.context_node.tag == f"{TEINS}div":
+                self.context_node = etree.SubElement(self.context_node, f"{TEINS}head")
+                addlinebreak = False
+            else:
+                if self.context_node.tag not in PARALIKE:
+                    _create_p()
+                etree.SubElement(self.context_node, f"{TEINS}lb")
 
-            etree.SubElement(self.context_node, f"{TEINS}lb")
-
+            # Process line parts
             if len(content.parts) > 0:
                 for part in content.parts:
                     self._convertPart(part, pos)
-                self._appendText(self.context_node, "\n")
+
+            if addlinebreak:
+                self._appendText(self.context_node, "\n")                
 
         elif isinstance(content, SectionHeader):
             # make sure this isn't used as a closing tag to resume content in the previous div.
@@ -293,7 +309,7 @@ class Converter:
                 div.set("subtype", "woman")
             elif content.be_type == "man":
                 div.set("type", "biography")
-                div.set("subtype", "man")
+                div.set("subtype", "man")                
             elif content.be_type == "ref":
                 div.set("type", "biography")
                 div.set("subtype", "ref_or_rep")
