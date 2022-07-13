@@ -1,27 +1,28 @@
 TEI_TEMPLATE = """<TEI xmlns="http://www.tei-c.org/ns/1.0">
- <teiHeader>
-     <fileDesc>
+  <teiHeader>
+      <fileDesc>
         <titleStmt>
-           <title></title>
+            <title></title>
         </titleStmt>
         <publicationStmt>
-           <p/>
+          <publisher>Open Islamicate Texts Initiative (OpenITI)</publisher>
+          <availability><p>Creative Commons Attribution Non Commercial Share Alike 4.0 International</p></availability>
         </publicationStmt>
         <sourceDesc>
-           <p/>
+          <p/>
         </sourceDesc>
-     </fileDesc>
-     <profileDesc>
+      </fileDesc>
+    <profileDesc>
       <calendarDesc>
-         <calendar xml:id="ah">
-            <p>Anno Hegirae</p>
-         </calendar>
+        <calendar xml:id="ah">
+          <p>Anno Hegirae</p>
+        </calendar>
       </calendarDesc>
-     </profileDesc>
- </teiHeader>
- <text>
+    </profileDesc>
+  </teiHeader>
+  <text>
     <body/>
- </text>
+  </text>
 </TEI>"""
 
 DECLS = """<?xml version='1.0' encoding='UTF-8'?>
