@@ -3,16 +3,17 @@ TEI_TEMPLATE = """<TEI xmlns="http://www.tei-c.org/ns/1.0">
       <fileDesc>
         <titleStmt>
             <title></title>
+            <author></author>
         </titleStmt>
         <publicationStmt>
           <publisher>Open Islamicate Texts Initiative (OpenITI)</publisher>
           <availability><p>Creative Commons Attribution Non Commercial Share Alike 4.0 International</p></availability>
         </publicationStmt>
         <sourceDesc>
-          <p/>
+            <bibl/>
         </sourceDesc>
       </fileDesc>
-    <profileDesc>
+      <profileDesc>
       <calendarDesc>
         <calendar xml:id="ah">
           <p>Anno Hegirae</p>

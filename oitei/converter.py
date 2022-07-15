@@ -2,6 +2,7 @@ import oimdp
 from oimdp.structures import *
 from lxml import etree
 from lxml.etree import Element
+from typing import TypedDict
 
 from oitei.tei_template import TEI_TEMPLATE, DECLS
 
@@ -13,13 +14,21 @@ NS = {
 }
 
 
+class Metadata(TypedDict):
+    prefix: str
+    auth_uri: str
+    author: str
+    book: str
+
+
 class Converter:
     """OpenITI mARkdown to OpenITI TEI converter"""
     # TODO: allow users to provide template or at least URL to schema
-    def __init__(self, text: str):
+    def __init__(self, text: str, metadata: Metadata):
         self.magic_value = "######OpenITI#"
         self.doc = etree.fromstring(TEI_TEMPLATE)
         self.context_linepart = None
+        self.metadata = metadata
         
         try:
             self.context_node = self.doc.find(".//tei:body", NS)
@@ -32,7 +41,7 @@ class Converter:
         except Exception:
             raise Exception("Could not parse mARkdown document.") 
 
-        if str(self.md.magic_value) != self.magic_value:
+        if not str(self.md.magic_value).startswith(self.magic_value):
             raise Exception("Text provided does not appear to be a valid mARkdown document.") 
 
 
@@ -113,6 +122,19 @@ class Converter:
     def convert(self):
         # Set up TEI document from a minimal string template
         teiHeader = self.doc.find(".//tei:teiHeader", NS)
+
+        # Inject author and book level metadata if provided
+        if self.metadata:
+            title = teiHeader.find(".//tei:titleStmt/tei:title", NS)
+            title.set("ref", f"#{self.metadata['prefix']}_book")
+            title.text = self.metadata['book']
+
+            author = teiHeader.find(".//tei:titleStmt/tei:author", NS)
+            author.set("ref", f"#{self.metadata['auth_uri']}")
+            author.text = self.metadata['author']
+
+            bibl = teiHeader.find(".//tei:sourceDesc/tei:bibl", NS)
+            bibl.set("ref", f"#{self.metadata['prefix']}_book")
         
         # Preserve non-machine readable data as xenodata
         if self.md.simple_metadata:
