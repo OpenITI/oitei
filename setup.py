@@ -11,7 +11,7 @@ setup(
     url="http://github.com/OpenITI/oitei",
     author="Raff Viglianti",
     author_email="rviglian@umd.edu",
-    packages=["oitei"],
+    packages=["oitei", "oitei.corpus"],
     description="OpenITI mARkdown to TEI converter",
     long_description=long_description,
     long_description_content_type="text/markdown",

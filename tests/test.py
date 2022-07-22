@@ -4,6 +4,7 @@ sys.path.append(
     os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir)))
 import unittest
 import oitei
+from oitei.corpus import convert_corpus
 
 
 class TestStringMethods(unittest.TestCase):
@@ -22,6 +23,9 @@ class TestStringMethods(unittest.TestCase):
         self.converted = oitei.convert(self.text).tostring()
         with open(os.path.join(root, "test.xml"), 'w') as writer:
             writer.write(self.converted)
+
+    def test_corpus(self):
+        convert_corpus("../OpenITI-Corpus/0575AH/data/0552CalaUsmandi")
 
     # def test_ernst(self):
     #     root = os.path.dirname(__file__)

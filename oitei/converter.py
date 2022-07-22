@@ -5,13 +5,7 @@ from lxml.etree import Element
 from typing import TypedDict
 
 from oitei.tei_template import TEI_TEMPLATE, DECLS
-
-TEINS = "{http://www.tei-c.org/ns/1.0}"
-
-NS = {
-    "tei": "http://www.tei-c.org/ns/1.0",
-    "xml": "http://www.w3.org/XML/1998/namespace"
-}
+from oitei.namespaces import TEINS, NS
 
 
 class Metadata(TypedDict):
