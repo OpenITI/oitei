@@ -1,5 +1,6 @@
 import re
 import logging
+import string
 from typing import List
 from lxml import etree
 from yaml import YAMLObject
@@ -8,43 +9,39 @@ from oitei.tei_template import DECLS
 from oitei.namespaces import NS, XMLNS, TEINS
 
 def make_author_record(yml: YAMLObject) -> str:
-    doc = etree.fromstring('<person xmlns="http://www.tei-c.org/ns/1.0"/>')
-    uri: str
-    life_event = {
-        "born": {
-            "date": "",
-            "calendar": "",
-            "places": [],
-        },
-        "died": {
-            "date": "",
-            "calendar": "",
-            "places": [],
-        }
-    }
-    visited = ""
+    listPerson_el = etree.fromstring('<listPerson xmlns="http://www.tei-c.org/ns/1.0"/>')
+    person_el = etree.SubElement(listPerson_el, "person")
+    listRelation_el = etree.SubElement(listPerson_el, "listRelation")
+
+    author_id: str
 
     def _get_event_el(ev_type):
         tag = "birth"
         if ev_type == 'DIED':
             tag = "death"
-        ev_el = doc.find(f".//{tag}", NS)
+        ev_el = person_el.find(f".//{tag}", NS)
         if not ev_el:
-            ev_el = etree.SubElement(doc, tag)
+            ev_el = etree.SubElement(person_el, tag)
         return ev_el
 
     for entry in yml:
         value = yml[entry]
-        # URI
+        # URI / AUTHOR ID
         if entry.startswith("00#AUTH#URI#"):
             uri = value.strip()
+            safeid: string
+            if (re.match(r"^\d", uri)):
+                safeid = f"oitei_{uri}"
+            else:
+                safeid = uri
+            author_id = safeid
 
         # NAMES
         elif entry.startswith("10#AUTH#"):
             # Find or create persName
-            persname_el = doc.find(".//persName", NS)
+            persname_el = person_el.find(".//persName", NS)
             if not persname_el:
-                persname_el = etree.SubElement(doc, "persName")
+                persname_el = etree.SubElement(person_el, "persName")
 
             # Parse entry
             [code, a, ntype, nlang] = re.split("#+", entry)
@@ -82,7 +79,7 @@ def make_author_record(yml: YAMLObject) -> str:
         elif entry.startswith("20#AUTH#VISITED#"):
             uris = value.strip().split(", ")
             if len(uris) > 0:
-                el = etree.SubElement(doc, "listEvent")
+                el = etree.SubElement(person_el, "listEvent")
                 for u in uris:
                     ev_el = etree.SubElement(el, "event")
                     ev_el.set("type", "visit")
@@ -93,7 +90,7 @@ def make_author_record(yml: YAMLObject) -> str:
             uris = value.strip().split(", ")
             if len(uris) > 0:
                 for u in uris:
-                    res_el = etree.SubElement(doc, "residence")
+                    res_el = etree.SubElement(person_el, "residence")
                     place_el = etree.SubElement(res_el, "placeName")
                     place_el.set("ref", u.strip())
 
@@ -101,17 +98,38 @@ def make_author_record(yml: YAMLObject) -> str:
         elif entry.startswith("80#AUTH#BIBLIO#"):
             uris = value.strip().split(", ")
             if len(uris) > 0:
-                el = etree.SubElement(doc, "listBibl")
+                el = etree.SubElement(person_el, "listBibl")
                 for u in uris:
                     b_el = etree.SubElement(el, "bibl")
                     b_el.set("ref", u.strip())
 
         # COMMENT 
         elif entry.startswith("90#AUTH#COMMENT#"):
-            etree.SubElement(doc, "note").text = value.strip()
+            etree.SubElement(person_el, "note").text = value.strip()
+        
+        # RELATIONS
+        elif re.match(r"40#AUTH#(STUDENTS|TEACHERS)#", entry):
+            [code, a, role, rest] = re.split("#+", entry)
+            uris = value.strip().split(", ")
+            if len(uris) > 0:
+                for u in uris:
+                    relation_el = etree.SubElement(listRelation_el, "relation")
+                    relation_el.set("name", role.lower())
+                    active: str
+                    passive: str
+                    if role == "STUDENTS":
+                        active = f"#{author_id}"
+                        passive = u
+                    elif role == "TEACHERS":
+                        active = u
+                        passive = f"#{author_id}"
+                    else:
+                        logging.warn(f"Unknown relationship role: {role}")
 
+                    relation_el.set("active", active)
+                    relation_el.set("passive", passive)
 
-    doc.set(f"{XMLNS}id", uri)
+    person_el.set(f"{XMLNS}id", author_id)
 
-    tree_str = etree.tostring(doc, xml_declaration=False, pretty_print=True, encoding="UTF-8").decode("utf-8")
+    tree_str = etree.tostring(listPerson_el, xml_declaration=False, pretty_print=True, encoding="UTF-8").decode("utf-8")
     return DECLS + tree_str
