@@ -3,6 +3,7 @@ import os
 import logging
 import yaml
 from .makeauthor import make_author_record
+from .makebook import make_book_record
     
 
 def convert_corpus(path: str, output="tei"):
@@ -49,15 +50,15 @@ def convert_corpus(path: str, output="tei"):
             if ext == ".yml":
                 yml_path = os.path.join(root, name)
                 with open(yml_path, "r") as yml_file:
-                    # yml = yml_file.readlines()
                     yml = yaml.safe_load(yml_file)
-                    if "00#AUTH#URI######" in yml:
+                    if yml.get("00#AUTH#URI######"):
                         auth = make_author_record(yml)
                         with open(os.path.join(output_dest, f"{filename}.xml"), "w") as writer:
                             writer.write(auth)
-                    # if "00#AUTH#" in yml[0]:
-                    # elif "00#BOOK#" in yml[0]:
-                    #     print("book file")
+                    elif yml.get("00#BOOK#URI######"):
+                        book = make_book_record(yml)
+                        with open(os.path.join(output_dest, f"{filename}.xml"), "w") as writer:
+                            writer.write(book)
                     # elif "00#VERS#" in yml[0]:
                     #     print("version file")
                     else:

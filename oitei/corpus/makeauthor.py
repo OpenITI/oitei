@@ -1,7 +1,6 @@
 import re
 import logging
 import string
-from typing import List
 from lxml import etree
 from yaml import YAMLObject
 
@@ -20,7 +19,7 @@ def make_author_record(yml: YAMLObject) -> str:
         if ev_type == 'DIED':
             tag = "death"
         ev_el = person_el.find(f".//{tag}", NS)
-        if not ev_el:
+        if ev_el is None:
             ev_el = etree.SubElement(person_el, tag)
         return ev_el
 
@@ -40,7 +39,7 @@ def make_author_record(yml: YAMLObject) -> str:
         elif entry.startswith("10#AUTH#"):
             # Find or create persName
             persname_el = person_el.find(".//persName", NS)
-            if not persname_el:
+            if persname_el is None:
                 persname_el = etree.SubElement(person_el, "persName")
 
             # Parse entry
