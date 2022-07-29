@@ -1,6 +1,7 @@
 import re
 import logging
 import string
+from tkinter import E
 from lxml import etree
 from yaml import YAMLObject
 
@@ -72,7 +73,7 @@ def make_author_record(yml: YAMLObject) -> str:
             
             ev_el = _get_event_el(event)
             ev_el.set("calendar", f"#{cal.lower()}")
-            ev_el.set("date", value.strip())
+            ev_el.set("when-custom", value.strip())            
 
         # PLACES VISITED
         elif entry.startswith("20#AUTH#VISITED#"):
@@ -83,6 +84,7 @@ def make_author_record(yml: YAMLObject) -> str:
                     ev_el = etree.SubElement(el, "event")
                     ev_el.set("type", "visit")
                     ev_el.set("where", u.strip())
+                    etree.SubElement(ev_el, "p")
 
         # RESIDENCES
         elif entry.startswith("20#AUTH#RESIDED#"):
@@ -100,7 +102,8 @@ def make_author_record(yml: YAMLObject) -> str:
                 el = etree.SubElement(person_el, "listBibl")
                 for u in uris:
                     b_el = etree.SubElement(el, "bibl")
-                    b_el.set("ref", u.strip())
+                    ptr_el = etree.SubElement(b_el, "ptr")
+                    ptr_el.set("target", u.strip())
 
         # COMMENT 
         elif entry.startswith("90#AUTH#COMMENT#"):
