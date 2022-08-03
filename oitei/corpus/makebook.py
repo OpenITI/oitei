@@ -1,13 +1,13 @@
 import re
 import logging
-import string
+from typing import Dict
 from lxml import etree
-from yaml import YAMLObject
+from lxml.etree import Element
 
 from oitei.tei_template import DECLS
-from oitei.namespaces import NS, XMLNS, TEINS
+from oitei.namespaces import XMLNS
 
-def make_book_record(yml: YAMLObject) -> str:
+def make_book_record(yml: Dict) -> Element:
     listBibl_el = etree.fromstring('<listBibl xmlns="http://www.tei-c.org/ns/1.0"/>')
     bibl_el = etree.SubElement(listBibl_el, "bibl")
 
@@ -18,7 +18,7 @@ def make_book_record(yml: YAMLObject) -> str:
         # URI / BOOK ID
         if entry.startswith("00#BOOK#URI#"):
             uri = value.strip()
-            safeid: string
+            safeid: str
             if (re.match(r"^\d", uri)):
                 safeid = f"oitei_{uri}"
             else:
@@ -41,7 +41,7 @@ def make_book_record(yml: YAMLObject) -> str:
             title_el.text = value.strip()
 
             if lang:
-                title_el.set(f"{XMLNS}lang", lang.lower())
+                title_el.set(f"{XMLNS}lang", lang[:-1].lower())
 
         # LOCATION
         elif entry.startswith("20#BOOK#WROTE#"):
@@ -53,7 +53,7 @@ def make_book_record(yml: YAMLObject) -> str:
 
         # DATE
         elif entry.startswith("30#BOOK#WROTE#"):
-            cal = re.split("#+", entry)[-1]
+            cal = re.split("#+", entry)[-1][:-1]
             # Skip unknown date
             if re.match(value, 'X+'):
                 continue
@@ -90,9 +90,10 @@ def make_book_record(yml: YAMLObject) -> str:
         # EXTERNAL RELATED ITEMS
         elif re.match(r"80#BOOK#(EDITIONS|LINKS|MSS|STUDIES|TRANSLAT)#", entry):
             rel = re.split("#+", entry)[2]
-            el = etree.SubElement(bibl_el, "relatedItem")
-            el.set("type", rel.lower())
-            el.set("target", value.strip().replace(", ", " "))
+            for r in value.strip().split(", "):
+                el = etree.SubElement(bibl_el, "relatedItem")
+                el.set("type", rel.lower())
+                el.set("target", r)
 
         # COMMENT 
         elif entry.startswith("90#BOOK#COMMENT#"):
@@ -101,5 +102,10 @@ def make_book_record(yml: YAMLObject) -> str:
 
     bibl_el.set(f"{XMLNS}id", book_id)
 
-    tree_str = etree.tostring(listBibl_el, xml_declaration=False, pretty_print=True, encoding="UTF-8").decode("utf-8")
+    return listBibl_el
+
+
+def make_book_record_str(yml: Dict) -> str:
+    el = make_book_record(yml)
+    tree_str = etree.tostring(el, xml_declaration=False, pretty_print=True, encoding="UTF-8").decode("utf-8")
     return DECLS + tree_str

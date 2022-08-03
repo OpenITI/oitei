@@ -7,4 +7,3 @@ def convert_corpus(path: str, output="tei"):
 __all__ = [
   'convert_corpus',
 ]
-__version__ = '1.0.0'

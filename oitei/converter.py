@@ -10,8 +10,10 @@ from oitei.namespaces import TEINS, NS
 
 class Metadata(TypedDict):
     prefix: str
+    idno: str
     auth_uri: str
     author: str
+    book_uri: str
     book: str
 
 
@@ -119,8 +121,12 @@ class Converter:
 
         # Inject author and book level metadata if provided
         if self.metadata:
+            pub = teiHeader.find(".//tei:publicationStmt", NS)
+            idno = etree.SubElement(pub, "idno")
+            idno.text = self.metadata["idno"]
+
             title = teiHeader.find(".//tei:titleStmt/tei:title", NS)
-            title.set("ref", f"#{self.metadata['prefix']}_book")
+            title.set("ref", f"#{self.metadata['book_uri']}")
             title.text = self.metadata['book']
 
             author = teiHeader.find(".//tei:titleStmt/tei:author", NS)
@@ -128,7 +134,8 @@ class Converter:
             author.text = self.metadata['author']
 
             bibl = teiHeader.find(".//tei:sourceDesc/tei:bibl", NS)
-            bibl.set("ref", f"#{self.metadata['prefix']}_book")
+            ptr = etree.SubElement(bibl, "ptr")
+            ptr.set("target", f"#{self.metadata['book_uri']}")
         
         # Preserve non-machine readable data as xenodata
         if self.md.simple_metadata:

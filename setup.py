@@ -1,6 +1,6 @@
 from setuptools import setup
 
-version = "1.0.0"
+version = "2.0.0"
 
 with open("README.md") as f:
     long_description = f.read()
@@ -18,6 +18,8 @@ setup(
     test_suite="tests",
     python_requires=">=3.8.*",
     install_requires=[
+        'lxml',
         'oimdp',
+        'openiti'
     ],
 )

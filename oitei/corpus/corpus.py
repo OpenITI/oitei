@@ -1,12 +1,110 @@
 import sys
 import os
+import re
 import logging
-import yaml
-from .makeauthor import make_author_record
-from .makebook import make_book_record
-    
+from typing import List
+from lxml.etree import Element
+from lxml import etree
+from .makeauthor import make_author_record_str
+from .makebook import make_book_record_str
+from .makeversion import make_version_record, VersionRecord
+from oitei.converter import Metadata, Converter
 
-def convert_corpus(path: str, output="tei"):
+from openiti.helper.yml import readYML, check_yml_completeness
+from openiti.helper.funcs import get_all_text_files_in_folder, get_all_yml_files_in_folder
+
+from oitei.namespaces import NS, XINS
+
+def cleanup_nbsp(text: str) -> str:
+    if text[0] == "﻿":
+        return text[1:]
+    return text
+
+
+def add_version_record_to_tei(vr: VersionRecord, doc: Element) -> Element:
+    th = doc.find(".//tei:teiHeader", NS)
+    fd = th.find("./tei:fileDesc", NS)
+    ts = fd.find("./tei:titleStmt", NS)
+    fd.insert(fd.index(ts)+1, vr["extent"])
+
+    ts.append(vr["resp"])
+
+    sd = doc.find(".//tei:sourceDesc", NS)
+    sd.append(vr["bibl"])
+
+    th.insert(th.index(fd)+1, vr["note"])
+
+    th.append(vr["date"])
+    return doc
+
+
+def link_metadata(auth: str, book: str, doc: Element) -> Element:
+    so = etree.SubElement(doc, "standOff")
+    so.append(etree.Comment("AUTHOR METADATA"))
+    auth_xi = etree.SubElement(so,f"{XINS}include")
+    auth_xi.set("href", f"../{auth}")
+
+    so.append(etree.Comment("BOOK METADATA"))
+    book_xi = etree.SubElement(so,f"{XINS}include")
+    book_xi.set("href", f"./{book}")
+    return doc
+
+
+def process_author_metadata(p:str, dest: str) -> tuple[str, str, str]:
+    return process_metadata(p, dest,
+        "AUTH", ["10#AUTH#ISM####AR:", "10#AUTH#LAQAB##AR:"], make_author_record_str)
+
+
+def process_book_metadata(p: str, dest: str) -> tuple[str, str, str]:
+    return process_metadata(p, dest,
+        "BOOK", ["10#BOOK#TITLEA#AR:", "10#BOOK#TITLEB#AR:"], make_book_record_str)
+
+
+def process_metadata(p: str, dest: str, mtype: str, fields: List[str], fn) -> tuple[str, str]:
+    yml = readYML(p, reflow=True) # NB Reflow isn't working at the moment.
+    record = fn(yml)
+    uri = yml.get(f"00#{mtype}#URI######:").strip()
+
+    non_default, ark = check_yml_completeness(p)
+    isDefault = len(non_default) == 0
+    value = re.sub(r"^\d+", "", uri)
+    if not isDefault:
+        value = " ".join([yml.get(f) for f in fields])
+
+    # Write out
+    output = os.path.join(dest, os.path.basename(p)).replace(".yml", "") + ".xml"
+    with open(output, "w") as writer:
+        writer.write(record)
+
+    return (uri, value, output) 
+
+
+def determine_folder_structure_for_file(fp: str, output: str) -> tuple[str, str]:
+    book_path = os.path.dirname(fp)
+    auth_path = os.path.dirname(book_path)
+    base = os.path.basename(fp)
+    auth_base = os.path.basename(auth_path)
+
+    auth_dest = os.path.join(output, auth_base)
+    book_dest = os.path.join(output, auth_base, os.path.basename(book_path))
+
+    logging.info(f"Determining directory structure for: {base}")
+    if not os.path.isdir(auth_dest):
+        try:
+            os.mkdir(auth_dest)
+        except Exception:
+            raise Exception(f"Could not create directory {auth_dest}")
+
+    if not os.path.isdir(book_dest):
+        try:
+            os.mkdir(book_dest)
+        except Exception:
+            raise Exception(f"Could not create directory {book_dest}")
+
+    return (auth_dest, book_dest)
+
+
+def convert_corpus(p: str, output="tei"):
     """Given an OpenITI Corpus folder, process the books contained."""
     # Structure:
     # > data
@@ -17,15 +115,14 @@ def convert_corpus(path: str, output="tei"):
     # > > > > VERSION METADATA
     # > > > > markdown text+ 
     #
-    # Duplicate folder structure
-    # generate author and book metadata, keeping track of:
-    # * author name
-    # * book title
-    # Identify mARkdown file (usually no extension; could check for magic code or attempt conversion as it makes that check before starting)
-    # perform oitei conversion and log issues
-    # * pass on author name, book title, and ref ids to be injected at transformation time.
+    # Get all files
+    # For each file:
+    # * get metadata from inferred folder
+    # * create folder structure
+    # * create metadata files
+    # * convert
 
-    if not os.path.exists(path):
+    if not os.path.exists(p):
         sys.exit("Path to corpus does not exist.")
     if not os.path.exists(output):
         try:
@@ -35,31 +132,62 @@ def convert_corpus(path: str, output="tei"):
     elif len(os.listdir(output)) > 0:
         sys.exit("Output directory is not empty.")
 
-    for root, dirs, files in os.walk(path):
-        # Each iteration is one folder
-        print("iteration", root)
-        dest = os.path.basename(root)
-        output_dest = os.path.join(output, dest)
-        try:
-            os.mkdir(output_dest)
-        except Exception:
-            raise Exception(f"Could not create directory {dest}")
+    mdfiles = get_all_text_files_in_folder(p)
 
-        for name in files:
-            [filename, ext] = os.path.splitext(name)
-            if ext == ".yml":
-                yml_path = os.path.join(root, name)
-                with open(yml_path, "r") as yml_file:
-                    yml = yaml.safe_load(yml_file)
-                    if yml.get("00#AUTH#URI######"):
-                        auth = make_author_record(yml)
-                        with open(os.path.join(output_dest, f"{filename}.xml"), "w") as writer:
-                            writer.write(auth)
-                    elif yml.get("00#BOOK#URI######"):
-                        book = make_book_record(yml)
-                        with open(os.path.join(output_dest, f"{filename}.xml"), "w") as writer:
-                            writer.write(book)
-                    # elif "00#VERS#" in yml[0]:
-                    #     print("version file")
-                    else:
-                        logging.warning(f"Could not determine type of metadata file: {yml_path}")
+    for mdf in mdfiles:
+        filename = os.path.basename(mdf)
+        book_path = os.path.dirname(mdf)
+        auth_path = os.path.dirname(book_path)
+
+        # Determine folder structure: creates structure if needed
+        auth_dest, book_dest = determine_folder_structure_for_file(mdf, output)
+
+        # Process author metadata
+        yauth_path = next(get_all_yml_files_in_folder(auth_path, "author"))
+        auth_uri, author, xauth_path = process_author_metadata(yauth_path, auth_dest)
+
+        # Process book metadata (choose the right book)
+        ybook_path = next(get_all_yml_files_in_folder(book_path, "book"))
+        book_uri, book, xbook_path = process_book_metadata(ybook_path, book_dest)
+
+        # Process version metadata 
+        # Choose the right file since there could be multiple versions and md files in book
+        yvers_paths = get_all_yml_files_in_folder(book_path, "version")
+        cleanfn = filename.replace(".inProgress", "").replace(".completed", "").replace(".mARkdown", "")
+        yvers_path = [yp for yp in yvers_paths if os.path.basename(yp) == cleanfn + ".yml"]
+        if len(yvers_path) > 0:
+            yvers = readYML(yvers_path[0], reflow=True)
+            version_record = make_version_record(yvers)
+        else:
+            logging.error(f"Could not locate version metadata file for: {mdf}")
+
+        # Assemble metadata
+        metadata: Metadata = {
+            "prefix": "oitei",
+            "auth_uri": auth_uri,
+            "author": author,
+            "book_uri": book_uri,
+            "book": book,
+            "idno": version_record["uri"]
+        }
+
+        with open(mdf) as file:
+            text = file.read()
+            try:
+                C = Converter(cleanup_nbsp(text), metadata)
+                C.convert()
+                C.doc = add_version_record_to_tei(version_record, C.doc)
+                C.doc = link_metadata(os.path.basename(xauth_path), os.path.basename(xbook_path), C.doc)
+
+                # Write out
+                with open(os.path.join(book_dest, f"{filename}.xml"), "w") as writer:
+                    writer.write(C.tostring())
+            except NameError:
+                logging.error(f"Error while processing mARkdown file {mdf}")
+                logging.error(NameError)
+            except:
+                logging.error(f"Error while processing mARkdown file {mdf}")
+            
+
+            
+

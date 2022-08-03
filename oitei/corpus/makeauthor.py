@@ -1,14 +1,13 @@
 import re
 import logging
-import string
-from tkinter import E
+from typing import Dict
+from lxml.etree import Element
 from lxml import etree
-from yaml import YAMLObject
 
 from oitei.tei_template import DECLS
-from oitei.namespaces import NS, XMLNS, TEINS
+from oitei.namespaces import NS, XMLNS
 
-def make_author_record(yml: YAMLObject) -> str:
+def make_author_record(yml: Dict) -> Element:
     listPerson_el = etree.fromstring('<listPerson xmlns="http://www.tei-c.org/ns/1.0"/>')
     person_el = etree.SubElement(listPerson_el, "person")
     listRelation_el = etree.SubElement(listPerson_el, "listRelation")
@@ -17,7 +16,7 @@ def make_author_record(yml: YAMLObject) -> str:
 
     def _get_event_el(ev_type):
         tag = "birth"
-        if ev_type == 'DIED':
+        if ev_type == "DIED":
             tag = "death"
         ev_el = person_el.find(f".//{tag}", NS)
         if ev_el is None:
@@ -29,7 +28,7 @@ def make_author_record(yml: YAMLObject) -> str:
         # URI / AUTHOR ID
         if entry.startswith("00#AUTH#URI#"):
             uri = value.strip()
-            safeid: string
+            safeid: str
             if (re.match(r"^\d", uri)):
                 safeid = f"oitei_{uri}"
             else:
@@ -68,7 +67,7 @@ def make_author_record(yml: YAMLObject) -> str:
             # Skip unknown date
             if re.match(value, 'X+'):
                 continue
-            if cal != "AH":
+            if cal[:-1] != "AH":
                 logging.warn(f"Unknown calendar in author record entry: {entry}")
             
             ev_el = _get_event_el(event)
@@ -133,5 +132,10 @@ def make_author_record(yml: YAMLObject) -> str:
 
     person_el.set(f"{XMLNS}id", author_id)
 
-    tree_str = etree.tostring(listPerson_el, xml_declaration=False, pretty_print=True, encoding="UTF-8").decode("utf-8")
+    return listPerson_el
+
+
+def make_author_record_str(yml: Dict) -> str:
+    el = make_author_record(yml)
+    tree_str = etree.tostring(el, xml_declaration=False, pretty_print=True, encoding="UTF-8").decode("utf-8")
     return DECLS + tree_str
