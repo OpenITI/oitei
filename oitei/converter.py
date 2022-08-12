@@ -101,6 +101,7 @@ class Converter:
 
 
     def _create_pb(self, c):
+        if c:
             pb = etree.SubElement(self.context_node, f"{TEINS}pb")
             value = ""
             if c.volume.isdigit():
@@ -149,7 +150,9 @@ class Converter:
 
         # If there are page numbers, the first one needs to be placed at the beginning
         # of the document because TEI marks page beginnings, not endings.
-        self._create_pb(self._pagenum_lookdown(0))
+        pb = self._pagenum_lookdown(0)
+        if pb:
+            self._create_pb(pb)
 
         # Process content
         for pos, content in enumerate(self.md.content):
@@ -262,15 +265,16 @@ class Converter:
         elif isinstance(content, SectionHeader):
             # make sure this isn't used as a closing tag to resume content in the previous div.
             # (no value or empty string value)
-            val = content.value or ""
-            if "".join(val.split()) == "":
-                closest = self.context_node.xpath("ancestor::tei:div[not(@type)] | ancestor::tei:body", namespaces=NS)
-                if len(closest):
-                    if self.context_node.tag == f"{TEINS}div":
-                        self.context_node = closest[-1]
-                    else:
-                        self.context_node = closest[-2]
-                return
+            # Removing this temporarily since this behavior seems to be implemented inconsistently.
+            # val = content.value or ""
+            # if "".join(val.split()) == "":
+            #     closest = self.context_node.xpath("ancestor::tei:div[not(@type)] | ancestor::tei:body", namespaces=NS)
+            #     if len(closest):
+            #         if self.context_node.tag == f"{TEINS}div":
+            #             self.context_node = closest[-1]
+            #         else:
+            #             self.context_node = closest[-2]
+            #     return
             
             # make sure we are in a section (untyped) div ...
             if self.context_node.tag != f"{TEINS}div" or self.context_node.get("type"):

@@ -7,6 +7,8 @@ from lxml import etree
 from oitei.tei_template import DECLS
 from oitei.namespaces import NS, XMLNS
 
+logger = logging.getLogger(__name__)
+
 def make_author_record(yml: Dict) -> Element:
     listPerson_el = etree.fromstring('<listPerson xmlns="http://www.tei-c.org/ns/1.0"/>')
     person_el = etree.SubElement(listPerson_el, "person")
@@ -68,7 +70,7 @@ def make_author_record(yml: Dict) -> Element:
             if re.match(value, 'X+'):
                 continue
             if cal[:-1] != "AH":
-                logging.warn(f"Unknown calendar in author record entry: {entry}")
+                logger.warn(f"Unknown calendar in author record entry: {entry}")
             
             ev_el = _get_event_el(event)
             ev_el.set("calendar", f"#{cal.lower()}")
@@ -125,7 +127,7 @@ def make_author_record(yml: Dict) -> Element:
                         active = u
                         passive = f"#{author_id}"
                     else:
-                        logging.warn(f"Unknown relationship role: {role}")
+                        logger.warn(f"Unknown relationship role: {role}")
 
                     relation_el.set("active", active)
                     relation_el.set("passive", passive)

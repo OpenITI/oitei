@@ -1,7 +1,9 @@
 import sys
 import os
 import re
+import shutil
 import logging
+import traceback
 from typing import List
 from lxml.etree import Element
 from lxml import etree
@@ -14,6 +16,17 @@ from openiti.helper.yml import readYML, check_yml_completeness
 from openiti.helper.funcs import get_all_text_files_in_folder, get_all_yml_files_in_folder
 
 from oitei.namespaces import NS, XINS
+
+from datetime import datetime
+
+
+now = datetime.now()
+date_time = now.strftime("%m-%d-%Y_%H%M%S")
+LOGFILE = f"oitei-{date_time}.log"
+
+logging.basicConfig(filename=LOGFILE, filemode='w', format='%(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 
 def cleanup_nbsp(text: str) -> str:
     if text[0] == "﻿":
@@ -88,18 +101,22 @@ def determine_folder_structure_for_file(fp: str, output: str) -> tuple[str, str]
     auth_dest = os.path.join(output, auth_base)
     book_dest = os.path.join(output, auth_base, os.path.basename(book_path))
 
-    logging.info(f"Determining directory structure for: {base}")
+    logger.info(f"Determining directory structure for: {base}")
     if not os.path.isdir(auth_dest):
         try:
             os.mkdir(auth_dest)
         except Exception:
-            raise Exception(f"Could not create directory {auth_dest}")
+            msg = f"Could not create directory {auth_dest}"
+            logger.critical(msg)
+            raise Exception(msg)
 
     if not os.path.isdir(book_dest):
         try:
             os.mkdir(book_dest)
         except Exception:
-            raise Exception(f"Could not create directory {book_dest}")
+            msg = f"Could not create directory {book_dest}"
+            logger.critical(msg)
+            raise Exception(msg)
 
     return (auth_dest, book_dest)
 
@@ -159,7 +176,7 @@ def convert_corpus(p: str, output="tei"):
             yvers = readYML(yvers_path[0], reflow=True)
             version_record = make_version_record(yvers)
         else:
-            logging.error(f"Could not locate version metadata file for: {mdf}")
+            logger.error(f"Could not locate version metadata file for: {mdf}")
 
         # Assemble metadata
         metadata: Metadata = {
@@ -182,12 +199,11 @@ def convert_corpus(p: str, output="tei"):
                 # Write out
                 with open(os.path.join(book_dest, f"{filename}.xml"), "w") as writer:
                     writer.write(C.tostring())
-            except NameError:
-                logging.error(f"Error while processing mARkdown file {mdf}")
-                logging.error(NameError)
+                
+                logger.info(f"Converted {mdf}")
             except:
-                logging.error(f"Error while processing mARkdown file {mdf}")
+                logger.error(f"Error while processing mARkdown file {mdf}")
+                logger.error(traceback.format_exc())
             
-
-            
-
+    # Copy log once done.
+    shutil.copyfile(LOGFILE, os.path.join(output, LOGFILE))

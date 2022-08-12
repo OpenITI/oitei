@@ -7,6 +7,8 @@ from lxml.etree import Element
 from oitei.tei_template import DECLS
 from oitei.namespaces import XMLNS
 
+logger = logging.getLogger(__name__)
+
 def make_book_record(yml: Dict) -> Element:
     listBibl_el = etree.fromstring('<listBibl xmlns="http://www.tei-c.org/ns/1.0"/>')
     bibl_el = etree.SubElement(listBibl_el, "bibl")
@@ -58,7 +60,7 @@ def make_book_record(yml: Dict) -> Element:
             if re.match(value, 'X+'):
                 continue
             if cal != "AH":
-                logging.warn(f"Unknown calendar in author record entry: {entry}")
+                logger.warn(f"Unknown calendar in author record entry: {entry}")
             date_el = etree.SubElement(bibl_el, "date")
             date_el.text = value.strip()
 
@@ -72,7 +74,6 @@ def make_book_record(yml: Dict) -> Element:
             for relation in relations:
                 parts = re.match(r"([^\()]+)\((.*?)\)", relation)
                 if parts:
-                    print(parts.groups())
                     [ref, types] = parts.groups()
                     for t in types.split(", "):
                         rel_el = etree.SubElement(bibl_el, "relatedItem")
@@ -85,7 +86,7 @@ def make_book_record(yml: Dict) -> Element:
                         rel_el.set("type", main)
                         rel_el.set("subtype", sub)
                 else:
-                    logging.warn(f"Could not parse book relation for book {book_id}")
+                    logger.warn(f"Could not parse book relation for book {book_id}")
 
         # EXTERNAL RELATED ITEMS
         elif re.match(r"80#BOOK#(EDITIONS|LINKS|MSS|STUDIES|TRANSLAT)#", entry):
