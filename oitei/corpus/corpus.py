@@ -10,13 +10,11 @@ from lxml import etree
 from .makeauthor import make_author_record_str
 from .makebook import make_book_record_str
 from .makeversion import make_version_record, VersionRecord
+from .makesite import makesite
 from oitei.converter import Metadata, Converter
-
+from oitei.namespaces import NS, XINS, TEINS
 from openiti.helper.yml import readYML, check_yml_completeness
 from openiti.helper.funcs import get_all_text_files_in_folder, get_all_yml_files_in_folder
-
-from oitei.namespaces import NS, XINS
-
 from datetime import datetime
 
 
@@ -52,7 +50,7 @@ def add_version_record_to_tei(vr: VersionRecord, doc: Element) -> Element:
 
 
 def link_metadata(auth: str, book: str, doc: Element) -> Element:
-    so = etree.SubElement(doc, "standOff")
+    so = etree.SubElement(doc, f"{TEINS}standOff")
     so.append(etree.Comment("AUTHOR METADATA"))
     auth_xi = etree.SubElement(so,f"{XINS}include")
     auth_xi.set("href", f"../{auth}")
@@ -151,6 +149,12 @@ def convert_corpus(p: str, output="tei"):
 
     mdfiles = get_all_text_files_in_folder(p)
 
+    # Keep track of data needed for sitemap
+    sitemap = {
+        "group": os.path.split(p)[-1],
+        "authors": []
+    }
+
     for mdf in mdfiles:
         filename = os.path.basename(mdf)
         book_path = os.path.dirname(mdf)
@@ -167,6 +171,10 @@ def convert_corpus(p: str, output="tei"):
         ybook_path = next(get_all_yml_files_in_folder(book_path, "book"))
         book_uri, book, xbook_path = process_book_metadata(ybook_path, book_dest)
 
+        
+        # site_auth = [a for a in sitemap["authors"] if a["id"] == auth_uri][0]
+        # if site_auth:       
+
         # Process version metadata 
         # Choose the right file since there could be multiple versions and md files in book
         yvers_paths = get_all_yml_files_in_folder(book_path, "version")
@@ -177,6 +185,34 @@ def convert_corpus(p: str, output="tei"):
             version_record = make_version_record(yvers)
         else:
             logger.error(f"Could not locate version metadata file for: {mdf}")
+
+        # Add to sitemap
+        file_info = {
+            "title": book,
+            "version": version_record["uri"],
+            "url": f"https://raw.githubusercontent.com/OpenITI/0575AH/tei/data/{auth_uri}/{book_uri}/{filename}.xml"
+        }
+        book_info = {
+            "title": book,
+            "id": book_uri,
+            "files": [file_info]
+        }
+
+        site_auth = [a for a in sitemap["authors"] if a["id"] == auth_uri]
+        if not site_auth:
+            site_auth = {
+                "id": auth_uri,
+                "name": author,
+                "books": [book_info]
+            }
+            sitemap["authors"].append(site_auth)
+        else:
+            site_book = [b for b in site_auth[0]["books"] if b["id"] == book_uri]
+            if not site_book:
+                site_auth[0]["books"].append(book_info)
+            else:
+                site_book[0]["files"].append(file_info)
+
 
         # Assemble metadata
         metadata: Metadata = {
@@ -199,11 +235,25 @@ def convert_corpus(p: str, output="tei"):
                 # Write out
                 with open(os.path.join(book_dest, f"{filename}.xml"), "w") as writer:
                     writer.write(C.tostring())
+
+                # Make prefixed version for CETEIcean rendering
+                # elements, prefixed = makecetei(C.doc)
+                # html = makehtml(elements, prefixed, f"{author}, {book}", version_record['uri'])
+                # with open(os.path.join(book_dest, f"{filename}.html"), "w") as writer:
+                #     writer.write(html)
                 
                 logger.info(f"Converted {mdf}")
             except:
                 logger.error(f"Error while processing mARkdown file {mdf}")
                 logger.error(traceback.format_exc())
+
+    # make TEI site from template
+    try:
+        makesite(sitemap, output=output)
+        logger.info("Created TEI website.")
+    except:
+        logger.error(f"Error while creating TEI site for {p}.")
+        logger.error(traceback.format_exc())
             
     # Copy log once done.
     shutil.copyfile(LOGFILE, os.path.join(output, LOGFILE))

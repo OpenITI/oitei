@@ -5,5 +5,6 @@ XINS = "{http://www.w3.org/2001/XInclude}"
 NS = {
     "tei": "http://www.tei-c.org/ns/1.0",
     "xml": "http://www.w3.org/XML/1998/namespace",
-    "xi": "http://www.w3.org/2001/XInclude"
+    "xi": "http://www.w3.org/2001/XInclude",
+    "teieg": "http://www.tei-c.org/ns/Examples"
 }
