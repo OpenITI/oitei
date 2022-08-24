@@ -10,17 +10,19 @@ from lxml import etree
 from .makeauthor import make_author_record_str
 from .makebook import make_book_record_str
 from .makeversion import make_version_record, VersionRecord
-from .makesite import makesite
+from .makesite import makesite, makesite_local
 from oitei.converter import Metadata, Converter
 from oitei.namespaces import NS, XINS, TEINS
 from openiti.helper.yml import readYML, check_yml_completeness
 from openiti.helper.funcs import get_all_text_files_in_folder, get_all_yml_files_in_folder
 from datetime import datetime
+import tempfile
 
 
 now = datetime.now()
 date_time = now.strftime("%m-%d-%Y_%H%M%S")
-LOGFILE = f"oitei-{date_time}.log"
+tmp = tempfile.gettempdir()
+LOGFILE = os.path.join(tmp, f"oitei-{date_time}.log")
 
 logging.basicConfig(filename=LOGFILE, filemode='w', format='%(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -169,11 +171,7 @@ def convert_corpus(p: str, output="tei"):
 
         # Process book metadata (choose the right book)
         ybook_path = next(get_all_yml_files_in_folder(book_path, "book"))
-        book_uri, book, xbook_path = process_book_metadata(ybook_path, book_dest)
-
-        
-        # site_auth = [a for a in sitemap["authors"] if a["id"] == auth_uri][0]
-        # if site_auth:       
+        book_uri, book, xbook_path = process_book_metadata(ybook_path, book_dest)     
 
         # Process version metadata 
         # Choose the right file since there could be multiple versions and md files in book
@@ -190,6 +188,7 @@ def convert_corpus(p: str, output="tei"):
         file_info = {
             "title": book,
             "version": version_record["uri"],
+            "filename": filename,
             "url": f"https://raw.githubusercontent.com/OpenITI/0575AH/tei/data/{auth_uri}/{book_uri}/{filename}.xml"
         }
         book_info = {
@@ -235,12 +234,6 @@ def convert_corpus(p: str, output="tei"):
                 # Write out
                 with open(os.path.join(book_dest, f"{filename}.xml"), "w") as writer:
                     writer.write(C.tostring())
-
-                # Make prefixed version for CETEIcean rendering
-                # elements, prefixed = makecetei(C.doc)
-                # html = makehtml(elements, prefixed, f"{author}, {book}", version_record['uri'])
-                # with open(os.path.join(book_dest, f"{filename}.html"), "w") as writer:
-                #     writer.write(html)
                 
                 logger.info(f"Converted {mdf}")
             except:
@@ -249,7 +242,7 @@ def convert_corpus(p: str, output="tei"):
 
     # make TEI site from template
     try:
-        makesite(sitemap, output=output)
+        makesite_local("/home/rviglian/Projects/openiti-teicorpus-site-template", sitemap, output=output, copy=True)
         logger.info("Created TEI website.")
     except:
         logger.error(f"Error while creating TEI site for {p}.")
