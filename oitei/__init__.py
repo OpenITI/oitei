@@ -8,13 +8,7 @@ def convert(text: str, metadata: Metadata = None):
 
     return C
 
-# def convert_from_document(doc):
-#     """Convert to TEI from a oimdp-parsed mARkdown object"""
-#     return converter(doc)
-
-
 __all__ = [
    'convert',
-#    'convert_from_document'
 ]
-__version__ = '1.0.0'
+__version__ = '1.1.1'

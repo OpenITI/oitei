@@ -1,6 +1,6 @@
 from setuptools import setup
 
-version = "2.0.0"
+version = "1.1.1"
 
 with open("README.md") as f:
     long_description = f.read()
@@ -11,7 +11,7 @@ setup(
     url="http://github.com/OpenITI/oitei",
     author="Raff Viglianti",
     author_email="rviglian@umd.edu",
-    packages=["oitei", "oitei.corpus"],
+    packages=["oitei"],
     description="OpenITI mARkdown to TEI converter",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -20,6 +20,5 @@ setup(
     install_requires=[
         'lxml',
         'oimdp',
-        'openiti'
     ],
 )
