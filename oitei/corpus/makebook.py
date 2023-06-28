@@ -82,9 +82,12 @@ def make_book_record(yml: Dict) -> Element:
                             b.text = ref.strip()
                         else:
                             rel_el.set("target", f"#{ref.strip()}")
-                        [main, sub] = t.strip().split(".")
+                        title_parts = t.strip().split(".")
+                        main = title_parts[0]
                         rel_el.set("type", main)
-                        rel_el.set("subtype", sub)
+                        if len(title_parts) > 1:
+                            sub = title_parts[1]
+                            rel_el.set("subtype", sub)
                 else:
                     logger.warn(f"Could not parse book relation for book {book_id}")
 

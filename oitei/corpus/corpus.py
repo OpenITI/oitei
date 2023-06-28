@@ -22,9 +22,10 @@ import tempfile
 now = datetime.now()
 date_time = now.strftime("%m-%d-%Y_%H%M%S")
 tmp = tempfile.gettempdir()
-LOGFILE = os.path.join(tmp, f"oitei-{date_time}.log")
+LOGFILE = f"oitei-{date_time}.log"
+LOGFILEPATH = os.path.join(tmp, LOGFILE)
 
-logging.basicConfig(filename=LOGFILE, filemode='w', format='%(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+logging.basicConfig(filename=LOGFILEPATH, filemode='w', format='%(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -63,17 +64,17 @@ def link_metadata(auth: str, book: str, doc: Element) -> Element:
     return doc
 
 
-def process_author_metadata(p:str, dest: str) -> tuple[str, str, str]:
+def process_author_metadata(p:str, dest: str): # -> tuple[str, str, str]: (needs >python3.9)
     return process_metadata(p, dest,
         "AUTH", ["10#AUTH#ISM####AR:", "10#AUTH#LAQAB##AR:"], make_author_record_str)
 
 
-def process_book_metadata(p: str, dest: str) -> tuple[str, str, str]:
+def process_book_metadata(p: str, dest: str): # -> tuple[str, str, str]: (needs >python3.9)
     return process_metadata(p, dest,
         "BOOK", ["10#BOOK#TITLEA#AR:", "10#BOOK#TITLEB#AR:"], make_book_record_str)
 
 
-def process_metadata(p: str, dest: str, mtype: str, fields: List[str], fn) -> tuple[str, str]:
+def process_metadata(p: str, dest: str, mtype: str, fields: List[str], fn): # -> tuple[str, str]: (needs >python3.9)
     yml = readYML(p, reflow=True) # NB Reflow isn't working at the moment.
     record = fn(yml)
     uri = yml.get(f"00#{mtype}#URI######:").strip()
@@ -92,7 +93,7 @@ def process_metadata(p: str, dest: str, mtype: str, fields: List[str], fn) -> tu
     return (uri, value, output) 
 
 
-def determine_folder_structure_for_file(fp: str, output: str) -> tuple[str, str]:
+def determine_folder_structure_for_file(fp: str, output: str): # -> tuple[str, str]: (needs >python3.9)
     book_path = os.path.dirname(fp)
     auth_path = os.path.dirname(book_path)
     base = os.path.basename(fp)
@@ -241,12 +242,12 @@ def convert_corpus(p: str, output="tei"):
                 logger.error(traceback.format_exc())
 
     # make TEI site from template
-    try:
-        makesite_local("/home/rviglian/Projects/openiti-teicorpus-site-template", sitemap, output=output, copy=True)
-        logger.info("Created TEI website.")
-    except:
-        logger.error(f"Error while creating TEI site for {p}.")
-        logger.error(traceback.format_exc())
+    # try:
+    #     makesite_local("/home/rviglian/Projects/openiti-teicorpus-site-template", sitemap, output=output, copy=True)
+    #     logger.info("Created TEI website.")
+    # except:
+    #     logger.error(f"Error while creating TEI site for {p}.")
+    #     logger.error(traceback.format_exc())
             
     # Copy log once done.
-    shutil.copyfile(LOGFILE, os.path.join(output, LOGFILE))
+    shutil.copyfile(LOGFILEPATH, os.path.join(output, LOGFILE))
