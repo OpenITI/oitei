@@ -246,7 +246,8 @@ tei-cRefPattern {
   display: none;
 }
 tei-caesura {
-  /* Empty Rule Set */
+  margin-right: 1em;
+  margin-left: 1em;
 }
 tei-camera {
   /* Empty Rule Set */
